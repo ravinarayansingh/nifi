@@ -30,6 +30,7 @@ import org.apache.nifi.serialization.record.type.RecordDataType;
 import org.apache.nifi.util.TestRunner;
 import org.apache.nifi.util.TestRunners;
 import org.bson.Document;
+import org.bson.types.ObjectId;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -58,7 +59,7 @@ public class MongoDBLookupServiceIT {
     private MongoDBLookupService service;
     private MongoDBControllerService controllerService;
     private MongoDatabase db;
-    private MongoCollection col;
+    private MongoCollection<Document> col;
 
     @BeforeEach
     public void before() throws Exception {
@@ -96,7 +97,36 @@ public class MongoDBLookupServiceIT {
         runner.assertValid(service);
 
     }
+    @Test
+    public void testLookupWithId() throws Exception {
+        runner.disableControllerService(service);
+        runner.setProperty(service, MongoDBLookupService.LOOKUP_VALUE_FIELD, "message");
+        runner.enableControllerService(service);
+        Map<String,Object> map= new HashMap<>();
+        map.put("_id",new ObjectId("507f1f77bcf86cd799439011"));
+        map.put("message","Hello, world");
+        Document document = new Document(map);
+        col.insertOne(document);
 
+        Map<String, Object> criteria = new HashMap<>();
+        criteria.put("_id", "507f1f77bcf86cd799439011");
+        Optional result = service.lookup(criteria);
+
+        assertNotNull(result.get(), "The value was null.");
+        assertEquals("Hello, world", result.get(), "The value was wrong.");
+
+        Map<String, Object> clean = new HashMap<>();
+        clean.putAll(criteria);
+        col.deleteOne(new Document(clean));
+
+        try {
+            result = service.lookup(criteria);
+        } catch (LookupFailureException ex) {
+            fail();
+        }
+
+        assertTrue(!result.isPresent());
+    }
     @Test
     public void testLookupSingle() throws Exception {
         runner.disableControllerService(service);
@@ -252,5 +282,17 @@ public class MongoDBLookupServiceIT {
         assertDoesNotThrow(() -> service.lookup(criteria));
 
         assertThrows(LookupFailureException.class, () -> service.lookup(new HashMap<>()));
+    }
+    @Test
+    public void testLookupInvalidId() {
+        Map<String,Object> map= new HashMap<>();
+        map.put("_id",new ObjectId("507f1f77bcf86cd799439011"));
+        map.put("message","Hello, world");
+        Document document = new Document(map);
+        col.insertOne(document);
+
+        Map<String, Object> criteria = new HashMap<>();
+        criteria.put("_id", "x-y-z");
+        assertThrows(LookupFailureException.class, () -> service.lookup(criteria));
     }
 }

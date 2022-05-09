@@ -37,6 +37,7 @@ import org.apache.nifi.serialization.record.Record;
 import org.apache.nifi.serialization.record.RecordSchema;
 import org.apache.nifi.util.StringUtils;
 import org.bson.Document;
+import org.bson.types.ObjectId;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -59,11 +60,11 @@ import static org.apache.nifi.schema.access.SchemaAccessUtils.SCHEMA_VERSION;
 
 @Tags({"mongo", "mongodb", "lookup", "record"})
 @CapabilityDescription(
-    "Provides a lookup service based around MongoDB. Each key that is specified \n" +
-    "will be added to a query as-is. For example, if you specify the two keys, \n" +
-    "user and email, the resulting query will be { \"user\": \"tester\", \"email\": \"tester@test.com\" }.\n" +
-    "The query is limited to the first result (findOne in the Mongo documentation). If no \"Lookup Value Field\" is specified " +
-    "then the entire MongoDB result document minus the _id field will be returned as a record."
+        "Provides a lookup service based around MongoDB. Each key that is specified \n" +
+                "will be added to a query as-is. For example, if you specify the two keys, \n" +
+                "user and email, the resulting query will be { \"user\": \"tester\", \"email\": \"tester@test.com\" }.\n" +
+                "The query is limited to the first result (findOne in the Mongo documentation).If no \"Lookup Value Field\" is specified " +
+                "then the entire MongoDB result document minus the _id field will be returned as a record."
 )
 public class MongoDBLookupService extends JsonInferenceSchemaRegistryService implements LookupService<Object> {
     public static final PropertyDescriptor LOCAL_SCHEMA_NAME = new PropertyDescriptor.Builder()
@@ -72,43 +73,43 @@ public class MongoDBLookupService extends JsonInferenceSchemaRegistryService imp
             .build();
 
     public static final PropertyDescriptor CONTROLLER_SERVICE = new PropertyDescriptor.Builder()
-        .name("mongo-lookup-client-service")
-        .displayName("Client Service")
-        .description("A MongoDB controller service to use with this lookup service.")
-        .required(true)
-        .identifiesControllerService(MongoDBClientService.class)
-        .build();
+            .name("mongo-lookup-client-service")
+            .displayName("Client Service")
+            .description("A MongoDB controller service to use with this lookup service.")
+            .required(true)
+            .identifiesControllerService(MongoDBClientService.class)
+            .build();
     public static final PropertyDescriptor DATABASE_NAME = new PropertyDescriptor.Builder()
-        .name("mongo-db-name")
-        .displayName("Mongo Database Name")
-        .description("The name of the database to use")
-        .required(true)
-        .expressionLanguageSupported(ExpressionLanguageScope.FLOWFILE_ATTRIBUTES)
-        .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
-        .build();
+            .name("mongo-db-name")
+            .displayName("Mongo Database Name")
+            .description("The name of the database to use")
+            .required(true)
+            .expressionLanguageSupported(ExpressionLanguageScope.FLOWFILE_ATTRIBUTES)
+            .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
+            .build();
     public static final PropertyDescriptor COLLECTION_NAME = new PropertyDescriptor.Builder()
-        .name("mongo-collection-name")
-        .displayName("Mongo Collection Name")
-        .description("The name of the collection to use")
-        .required(true)
-        .expressionLanguageSupported(ExpressionLanguageScope.FLOWFILE_ATTRIBUTES)
-        .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
-        .build();
+            .name("mongo-collection-name")
+            .displayName("Mongo Collection Name")
+            .description("The name of the collection to use")
+            .required(true)
+            .expressionLanguageSupported(ExpressionLanguageScope.FLOWFILE_ATTRIBUTES)
+            .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
+            .build();
     public static final PropertyDescriptor LOOKUP_VALUE_FIELD = new PropertyDescriptor.Builder()
-        .name("mongo-lookup-value-field")
-        .displayName("Lookup Value Field")
-        .description("The field whose value will be returned when the lookup key(s) match a record. If not specified then the entire " +
-                "MongoDB result document minus the _id field will be returned as a record.")
-        .addValidator(Validator.VALID)
-        .required(false)
-        .build();
+            .name("mongo-lookup-value-field")
+            .displayName("Lookup Value Field")
+            .description("The field whose value will be returned when the lookup key(s) match a record. If not specified then the entire " +
+                    "MongoDB result document minus the _id field will be returned as a record.")
+            .addValidator(Validator.VALID)
+            .required(false)
+            .build();
     public static final PropertyDescriptor PROJECTION = new PropertyDescriptor.Builder()
-        .name("mongo-lookup-projection")
-        .displayName("Projection")
-        .description("Specifies a projection for limiting which fields will be returned.")
-        .required(false)
-        .addValidator(JsonValidator.INSTANCE)
-        .build();
+            .name("mongo-lookup-projection")
+            .displayName("Projection")
+            .description("Specifies a projection for limiting which fields will be returned.")
+            .required(false)
+            .addValidator(JsonValidator.INSTANCE)
+            .build();
 
     private String lookupValueField;
 
@@ -123,12 +124,21 @@ public class MongoDBLookupService extends JsonInferenceSchemaRegistryService imp
 
     @Override
     public Optional<Object> lookup(Map<String, Object> coordinates, Map<String, String> context) throws LookupFailureException {
+        if (coordinates.containsKey("_id")) {
+
+            String value = coordinates.get("_id").toString();
+            if (ObjectId.isValid(value)) {
+                coordinates.put("_id", new ObjectId(value));
+            } else {
+                throw new LookupFailureException("Invalid hexadecimal value for _id.");
+            }
+        }
         Map<String, Object> clean = coordinates.entrySet().stream()
-            .filter(e -> !schemaNameProperty.equals(String.format("${%s}", e.getKey())))
-            .collect(Collectors.toMap(
-                e -> e.getKey(),
-                e -> e.getValue()
-            ));
+                .filter(e -> !schemaNameProperty.equals(String.format("${%s}", e.getKey())))
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        Map.Entry::getValue
+                ));
         Document query = new Document(clean);
 
         if (coordinates.size() == 0) {
@@ -136,9 +146,9 @@ public class MongoDBLookupService extends JsonInferenceSchemaRegistryService imp
         }
 
         try {
-            Document result = findOne(query, projection,context);
+            Document result = findOne(query, projection, context);
 
-            if(result == null) {
+            if (result == null) {
                 return Optional.empty();
             } else if (!StringUtils.isEmpty(lookupValueField)) {
                 return Optional.ofNullable(result.get(lookupValueField));
@@ -148,7 +158,7 @@ public class MongoDBLookupService extends JsonInferenceSchemaRegistryService imp
                 return Optional.ofNullable(new MapRecord(schema, result));
             }
         } catch (Exception ex) {
-            getLogger().error("Error during lookup {}", new Object[]{ query.toJson() }, ex);
+            getLogger().error("Error during lookup {}", new Object[]{query.toJson()}, ex);
             throw new LookupFailureException(ex);
         }
     }
@@ -172,8 +182,8 @@ public class MongoDBLookupService extends JsonInferenceSchemaRegistryService imp
 
         this.schemaNameProperty = context.getProperty(LOCAL_SCHEMA_NAME).evaluateAttributeExpressions().getValue();
         String configuredProjection = context.getProperty(PROJECTION).isSet()
-            ? context.getProperty(PROJECTION).getValue()
-            : null;
+                ? context.getProperty(PROJECTION).getValue()
+                : null;
         if (!StringUtils.isBlank(configuredProjection)) {
             projection = Document.parse(configuredProjection);
         }
@@ -192,8 +202,8 @@ public class MongoDBLookupService extends JsonInferenceSchemaRegistryService imp
 
     @Override
     protected List<PropertyDescriptor> getSupportedPropertyDescriptors() {
-        AllowableValue[] strategies = new AllowableValue[] {
-            SCHEMA_NAME_PROPERTY, SCHEMA_TEXT_PROPERTY, INFER_SCHEMA
+        AllowableValue[] strategies = new AllowableValue[]{
+                SCHEMA_NAME_PROPERTY, SCHEMA_TEXT_PROPERTY, INFER_SCHEMA
         };
         List<PropertyDescriptor> _temp = new ArrayList<>();
         _temp.add(new PropertyDescriptor.Builder()
@@ -216,10 +226,10 @@ public class MongoDBLookupService extends JsonInferenceSchemaRegistryService imp
         return Collections.unmodifiableList(_temp);
     }
 
-    private Document findOne(Document query, Document projection,Map<String, String> context) {
+    private Document findOne(Document query, Document projection, Map<String, String> context) {
         final String databaseName = getProperty(DATABASE_NAME).evaluateAttributeExpressions(context).getValue();
         final String collection = getProperty(COLLECTION_NAME).evaluateAttributeExpressions(context).getValue();
-        MongoCollection col = controllerService.getDatabase(databaseName).getCollection(collection);
+        MongoCollection<Document> col = controllerService.getDatabase(databaseName).getCollection(collection);
         MongoCursor<Document> it = (projection != null ? col.find(query).projection(projection) : col.find(query)).iterator();
         Document retVal = it.hasNext() ? it.next() : null;
         it.close();
