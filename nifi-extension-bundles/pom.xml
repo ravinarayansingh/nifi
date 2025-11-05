@@ -78,6 +78,7 @@
         <module>nifi-salesforce-bundle</module>
         <module>nifi-zendesk-bundle</module>
         <module>nifi-hubspot-bundle</module>
+        <module>nifi-iceberg-bundle</module>
         <module>nifi-dropbox-bundle</module>
         <module>nifi-airtable-bundle</module>
         <module>nifi-workday-bundle</module>
@@ -95,5 +96,6 @@
         <module>nifi-github-bundle</module>
         <module>nifi-gitlab-bundle</module>
         <module>nifi-atlassian-bundle</module>
+        <module>nifi-couchbase-bundle</module>
     </modules>
 </project>

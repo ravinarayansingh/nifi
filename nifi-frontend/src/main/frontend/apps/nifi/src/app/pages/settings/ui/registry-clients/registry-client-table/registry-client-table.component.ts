@@ -18,6 +18,7 @@
 import { Component, EventEmitter, Input, Output, inject } from '@angular/core';
 import { MatTableDataSource, MatTableModule } from '@angular/material/table';
 import { MatSortModule, Sort } from '@angular/material/sort';
+import { NgClass } from '@angular/common';
 import { ReportingTaskEntity } from '../../../state/reporting-tasks';
 import { TextTip, NiFiCommon, NifiTooltipDirective } from '@nifi/shared';
 import { BulletinsTip } from '../../../../../ui/common/tooltips/bulletins-tip/bulletins-tip.component';
@@ -30,7 +31,16 @@ import { MatMenu, MatMenuItem, MatMenuTrigger } from '@angular/material/menu';
     selector: 'registry-client-table',
     templateUrl: './registry-client-table.component.html',
     styleUrls: ['./registry-client-table.component.scss'],
-    imports: [MatTableModule, MatSortModule, NifiTooltipDirective, MatIconButton, MatMenuTrigger, MatMenu, MatMenuItem]
+    imports: [
+        MatTableModule,
+        MatSortModule,
+        NgClass,
+        NifiTooltipDirective,
+        MatIconButton,
+        MatMenuTrigger,
+        MatMenu,
+        MatMenuItem
+    ]
 })
 export class RegistryClientTable {
     private nifiCommon = inject(NiFiCommon);
@@ -46,6 +56,8 @@ export class RegistryClientTable {
     @Output() selectRegistryClient: EventEmitter<RegistryClientEntity> = new EventEmitter<RegistryClientEntity>();
     @Output() configureRegistryClient: EventEmitter<RegistryClientEntity> = new EventEmitter<RegistryClientEntity>();
     @Output() deleteRegistryClient: EventEmitter<RegistryClientEntity> = new EventEmitter<RegistryClientEntity>();
+    @Output() clearBulletinsRegistryClient: EventEmitter<RegistryClientEntity> =
+        new EventEmitter<RegistryClientEntity>();
 
     protected readonly TextTip = TextTip;
     protected readonly BulletinsTip = BulletinsTip;
@@ -87,6 +99,10 @@ export class RegistryClientTable {
             // @ts-ignore
             bulletins: entity.bulletins
         };
+    }
+
+    getBulletinSeverityClass(entity: RegistryClientEntity): string {
+        return this.nifiCommon.getBulletinSeverityClass(entity.bulletins || []);
     }
 
     formatType(entity: RegistryClientEntity): string {
@@ -141,6 +157,14 @@ export class RegistryClientTable {
 
     deleteClicked(entity: RegistryClientEntity): void {
         this.deleteRegistryClient.next(entity);
+    }
+
+    canClearBulletins(entity: RegistryClientEntity): boolean {
+        return this.canWrite(entity) && !this.nifiCommon.isEmpty(entity.bulletins);
+    }
+
+    clearBulletinsClicked(entity: RegistryClientEntity): void {
+        this.clearBulletinsRegistryClient.next(entity);
     }
 
     select(entity: ReportingTaskEntity): void {

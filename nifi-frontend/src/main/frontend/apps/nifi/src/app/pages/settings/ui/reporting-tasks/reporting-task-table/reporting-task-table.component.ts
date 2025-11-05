@@ -73,6 +73,7 @@ export class ReportingTaskTable {
     @Output() viewStateReportingTask: EventEmitter<ReportingTaskEntity> = new EventEmitter<ReportingTaskEntity>();
     @Output() stopReportingTask: EventEmitter<ReportingTaskEntity> = new EventEmitter<ReportingTaskEntity>();
     @Output() changeReportingTaskVersion: EventEmitter<ReportingTaskEntity> = new EventEmitter<ReportingTaskEntity>();
+    @Output() clearBulletinsReportingTask: EventEmitter<ReportingTaskEntity> = new EventEmitter<ReportingTaskEntity>();
 
     protected readonly TextTip = TextTip;
     protected readonly BulletinsTip = BulletinsTip;
@@ -123,6 +124,10 @@ export class ReportingTaskTable {
         return {
             bulletins: entity.bulletins
         };
+    }
+
+    getBulletinSeverityClass(entity: ReportingTaskEntity): string {
+        return this.nifiCommon.getBulletinSeverityClass(entity.bulletins);
     }
 
     getStateIcon(entity: ReportingTaskEntity): string {
@@ -267,6 +272,14 @@ export class ReportingTaskTable {
 
     managedAccessPoliciesClicked(entity: ReportingTaskEntity): void {
         this.manageAccessPolicies.next(entity);
+    }
+
+    canClearBulletins(entity: ReportingTaskEntity): boolean {
+        return this.canWrite(entity) && !this.nifiCommon.isEmpty(entity.bulletins);
+    }
+
+    clearBulletinsClicked(entity: ReportingTaskEntity): void {
+        this.clearBulletinsReportingTask.next(entity);
     }
 
     select(entity: ReportingTaskEntity): void {

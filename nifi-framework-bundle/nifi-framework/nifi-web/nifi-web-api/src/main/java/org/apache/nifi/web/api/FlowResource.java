@@ -32,6 +32,7 @@ import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.HttpMethod;
+import jakarta.ws.rs.POST;
 import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
@@ -55,6 +56,7 @@ import org.apache.nifi.bundle.BundleCoordinate;
 import org.apache.nifi.bundle.BundleDetails;
 import org.apache.nifi.c2.protocol.component.api.ControllerServiceDefinition;
 import org.apache.nifi.c2.protocol.component.api.FlowAnalysisRuleDefinition;
+import org.apache.nifi.c2.protocol.component.api.FlowRegistryClientDefinition;
 import org.apache.nifi.c2.protocol.component.api.ParameterProviderDefinition;
 import org.apache.nifi.c2.protocol.component.api.ProcessorDefinition;
 import org.apache.nifi.c2.protocol.component.api.ReportingTaskDefinition;
@@ -104,6 +106,8 @@ import org.apache.nifi.web.api.entity.ActivateControllerServicesEntity;
 import org.apache.nifi.web.api.entity.AdditionalDetailsEntity;
 import org.apache.nifi.web.api.entity.BannerEntity;
 import org.apache.nifi.web.api.entity.BulletinBoardEntity;
+import org.apache.nifi.web.api.entity.ClearBulletinsForGroupRequestEntity;
+import org.apache.nifi.web.api.entity.ClearBulletinsForGroupResultsEntity;
 import org.apache.nifi.web.api.entity.ClusterSearchResultsEntity;
 import org.apache.nifi.web.api.entity.ClusterSummaryEntity;
 import org.apache.nifi.web.api.entity.ComponentHistoryEntity;
@@ -171,6 +175,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.URI;
 import java.text.Collator;
+import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -628,7 +633,7 @@ public class FlowResource extends ApplicationResource {
                     @SecurityRequirement(name = "Read - /flow")
             },
             description = "If the uiOnly query parameter is provided with a value of true, the returned entity may only contain fields that are necessary for rendering the NiFi User Interface. As " +
-             "such, " +
+                    "such, " +
                     "the selected fields may change at any time, even during incremental releases, without warning. As a result, this parameter should not be provided by any client other than the UI."
     )
     public Response getControllerServicesFromController(@QueryParam("uiOnly") @DefaultValue("false") final boolean uiOnly,
@@ -680,7 +685,7 @@ public class FlowResource extends ApplicationResource {
                     @SecurityRequirement(name = "Read - /flow")
             },
             description = "If the uiOnly query parameter is provided with a value of true, the returned entity may only contain fields that are necessary for rendering the NiFi User Interface. As " +
-             "such, " +
+                    "such, " +
                     "the selected fields may change at any time, even during incremental releases, without warning. As a result, this parameter should not be provided by any client other than the UI."
     )
     public Response getControllerServicesFromGroup(
@@ -1224,6 +1229,122 @@ public class FlowResource extends ApplicationResource {
 
                     // update the controller services
                     final ActivateControllerServicesEntity entity = serviceFacade.activateControllerServices(id, serviceState, componentRevisions);
+                    return generateOkResponse(entity).build();
+                }
+        );
+    }
+
+    /**
+     * Clears bulletins for components in the specified Process Group.
+     *
+     * @param id The id of the process group.
+     * @param clearBulletinsForGroupRequestEntity A clearBulletinsRequestEntity.
+     * @return A clearBulletinsResultsEntity.
+     */
+    @POST
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    @Path("process-groups/{id}/bulletins/clear-requests")
+    @Operation(
+            summary = "Clears bulletins for components in the specified Process Group.",
+            responses = {
+                    @ApiResponse(responseCode = "200", content = @Content(schema = @Schema(implementation = ClearBulletinsForGroupResultsEntity.class))),
+                    @ApiResponse(responseCode = "400", description = "NiFi was unable to complete the request because it was invalid. The request should not be retried without modification."),
+                    @ApiResponse(responseCode = "401", description = "Client could not be authenticated."),
+                    @ApiResponse(responseCode = "403", description = "Client is not authorized to make this request."),
+                    @ApiResponse(responseCode = "404", description = "The specified resource could not be found."),
+                    @ApiResponse(responseCode = "409", description = "The request was valid but NiFi was not in the appropriate state to process it.")
+            },
+            security = {
+                    @SecurityRequirement(name = "Read - /flow"),
+                    @SecurityRequirement(name = "Write - /process-groups/{uuid} - For the process group"),
+                    @SecurityRequirement(name = "Write - /{component-type}/{uuid} - For every component having bulletins cleared")
+            }
+    )
+    public Response clearBulletins(
+            @Parameter(
+                    description = "The process group id.",
+                    required = true
+            )
+            @PathParam("id") String id,
+            @Parameter(
+                    description = "The request to clear bulletins. If the components in the request are not specified, all authorized components will be considered.",
+                    required = true
+            ) final ClearBulletinsForGroupRequestEntity clearBulletinsForGroupRequestEntity) {
+
+        if (clearBulletinsForGroupRequestEntity == null) {
+            throw new IllegalArgumentException("Clear bulletins request must be specified.");
+        }
+
+        // ensure the same id is being used
+        if (!id.equals(clearBulletinsForGroupRequestEntity.getId())) {
+            throw new IllegalArgumentException(String.format("The process group id (%s) in the request body does "
+                    + "not equal the process group id of the requested resource (%s).", clearBulletinsForGroupRequestEntity.getId(), id));
+        }
+
+        final Instant fromTimestamp = clearBulletinsForGroupRequestEntity.getFromTimestamp();
+        if (fromTimestamp == null) {
+            throw new IllegalArgumentException("The from timestamp must be specified.");
+        }
+
+        // if the components are not specified, gather all authorized components
+        if (clearBulletinsForGroupRequestEntity.getComponents() == null) {
+            // get component IDs that the user has write access to
+            final Set<String> writableComponentIds = serviceFacade.filterComponents(id, group -> {
+                final Set<String> componentIds = new HashSet<>();
+
+                // find all processors with write permissions
+                group.findAllProcessors().stream()
+                        .filter(processor -> processor.isAuthorized(authorizer, RequestAction.WRITE, NiFiUserUtils.getNiFiUser()))
+                        .forEach(processor -> componentIds.add(processor.getIdentifier()));
+
+                // find all input ports with write permissions
+                group.findAllInputPorts().stream()
+                        .filter(inputPort -> inputPort.isAuthorized(authorizer, RequestAction.WRITE, NiFiUserUtils.getNiFiUser()))
+                        .forEach(inputPort -> componentIds.add(inputPort.getIdentifier()));
+
+                // find all output ports with write permissions
+                group.findAllOutputPorts().stream()
+                        .filter(outputPort -> outputPort.isAuthorized(authorizer, RequestAction.WRITE, NiFiUserUtils.getNiFiUser()))
+                        .forEach(outputPort -> componentIds.add(outputPort.getIdentifier()));
+
+                // find all rpgs with write permissions
+                group.findAllRemoteProcessGroups().stream()
+                        .filter(remoteProcessGroup -> remoteProcessGroup.isAuthorized(authorizer, RequestAction.WRITE, NiFiUserUtils.getNiFiUser()))
+                        .forEach(remoteProcessGroup -> componentIds.add(remoteProcessGroup.getIdentifier()));
+
+                return componentIds;
+            });
+
+            // set the components (no revisions needed)
+            clearBulletinsForGroupRequestEntity.setComponents(writableComponentIds);
+        }
+
+        if (isReplicateRequest()) {
+            return replicate(HttpMethod.POST, clearBulletinsForGroupRequestEntity);
+        }
+
+        final ProcessGroupEntity requestProcessGroupEntity = new ProcessGroupEntity();
+        requestProcessGroupEntity.setId(id);
+
+        return withWriteLock(
+                serviceFacade,
+                requestProcessGroupEntity,
+                lookup -> {
+                    authorizeFlow();
+
+                    // ensure access to every component being cleared
+                    final Set<String> requestComponentsToClear = clearBulletinsForGroupRequestEntity.getComponents();
+                    requestComponentsToClear.forEach(componentId -> {
+                        final Authorizable connectable = lookup.getLocalConnectable(componentId);
+                        connectable.authorize(authorizer, RequestAction.WRITE, NiFiUserUtils.getNiFiUser());
+                    });
+                },
+                () -> { },
+                (processGroupEntity) -> {
+                    // clear the bulletins
+                    final ClearBulletinsForGroupResultsEntity entity = serviceFacade.clearBulletinsForComponents(
+                            processGroupEntity.getId(), fromTimestamp, clearBulletinsForGroupRequestEntity.getComponents());
                     return generateOkResponse(entity).build();
                 }
         );
@@ -1882,6 +2003,58 @@ public class FlowResource extends ApplicationResource {
     @GET
     @Consumes(MediaType.WILDCARD)
     @Produces(MediaType.APPLICATION_JSON)
+    @Path("flow-registry-client-definition/{group}/{artifact}/{version}/{type}")
+    @Operation(
+            summary = "Retrieves the Flow Registry Client Definition for the specified component type.",
+            description = NON_GUARANTEED_ENDPOINT,
+            responses = {
+                    @ApiResponse(responseCode = "200", content = @Content(schema = @Schema(implementation = FlowRegistryClientDefinition.class))),
+                    @ApiResponse(responseCode = "400", description = "NiFi was unable to complete the request because it was invalid. The request should not be retried without modification."),
+                    @ApiResponse(responseCode = "401", description = "Client could not be authenticated."),
+                    @ApiResponse(responseCode = "403", description = "Client is not authorized to make this request."),
+                    @ApiResponse(responseCode = "404", description = "The flow registry client definition for the coordinates could not be located.")
+            },
+            security = {
+                    @SecurityRequirement(name = "Read - /flow")
+            }
+    )
+    public Response getFlowRegistryClientDefinition(
+            @Parameter(
+                    description = "The bundle group",
+                    required = true
+            )
+            @PathParam("group") String group,
+            @Parameter(
+                    description = "The bundle artifact",
+                    required = true
+            )
+            @PathParam("artifact") String artifact,
+            @Parameter(
+                    description = "The bundle version",
+                    required = true
+            )
+            @PathParam("version") String version,
+            @Parameter(
+                    description = "The flow registry client type",
+                    required = true
+            )
+            @PathParam("type") String type
+    ) throws InterruptedException {
+
+        authorizeFlow();
+
+        if (isReplicateRequest()) {
+            return replicate(HttpMethod.GET);
+        }
+
+        final FlowRegistryClientDefinition entity = serviceFacade.getFlowRegistryClientDefinition(group, artifact, version, type);
+
+        return generateOkResponse(entity).build();
+    }
+
+    @GET
+    @Consumes(MediaType.WILDCARD)
+    @Produces(MediaType.APPLICATION_JSON)
     @Path("flow-analysis-rule-definition/{group}/{artifact}/{version}/{type}")
     @Operation(
             summary = "Retrieves the Flow Analysis Rule Definition for the specified component type.",
@@ -2518,7 +2691,7 @@ public class FlowResource extends ApplicationResource {
         authorizeFlow();
         FlowVersionLocation baseVersionLocation = new FlowVersionLocation(branchIdA, bucketIdA, flowIdA, versionA);
         FlowVersionLocation comparedVersionLocation = new FlowVersionLocation(branchIdB, bucketIdB, flowIdB, versionB);
-            final FlowComparisonEntity versionDifference = serviceFacade.getVersionDifference(registryId, baseVersionLocation, comparedVersionLocation);
+        final FlowComparisonEntity versionDifference = serviceFacade.getVersionDifference(registryId, baseVersionLocation, comparedVersionLocation);
         // Note: with the current implementation, this is deterministic. However, the internal data structure used in comparison is set, thus
         // later changes might cause discrepancies. Practical use of the endpoint usually remains within one "page" though.
         return generateOkResponse(limitDifferences(versionDifference, offset, limit))

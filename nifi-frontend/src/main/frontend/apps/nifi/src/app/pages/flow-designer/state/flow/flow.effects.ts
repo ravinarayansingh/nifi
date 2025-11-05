@@ -85,7 +85,7 @@ import {
     selectCurrentParameterContext,
     selectCurrentProcessGroupId,
     selectCurrentProcessGroupRevision,
-    selectFlowLoadingStatus,
+    selectHasFlowData,
     selectInputPort,
     selectMaxZIndex,
     selectOutputPort,
@@ -249,11 +249,11 @@ export class FlowEffects {
             ofType(FlowActions.loadProcessGroup),
             map((action) => action.request),
             concatLatestFrom(() => [
-                this.store.select(selectFlowLoadingStatus),
+                this.store.select(selectHasFlowData),
                 this.store.select(selectConnectedStateChanged)
             ]),
             tap(() => this.store.dispatch(resetConnectedStateChanged())),
-            switchMap(([request, status, connectedStateChanged]) =>
+            switchMap(([request, hasFlowData, connectedStateChanged]) =>
                 combineLatest([
                     this.flowService.getFlow(request.id),
                     this.flowService.getFlowStatus(),
@@ -274,7 +274,7 @@ export class FlowEffects {
                         });
                     }),
                     catchError((errorResponse: HttpErrorResponse) =>
-                        of(this.errorHelper.handleLoadingError(status, errorResponse))
+                        of(this.errorHelper.handleLoadingError(hasFlowData, errorResponse))
                     )
                 )
             )
@@ -4617,5 +4617,72 @@ export class FlowEffects {
                 })
             ),
         { dispatch: false }
+    );
+
+    /*
+        Clear Bulletins Effects
+    */
+
+    clearBulletinsForComponent$ = createEffect(() =>
+        this.actions$.pipe(
+            ofType(FlowActions.clearBulletinsForComponent),
+            map((action) => action.request),
+            switchMap((request) =>
+                from(this.flowService.clearBulletinForComponent(request)).pipe(
+                    map((response) =>
+                        FlowActions.clearBulletinsForComponentSuccess({
+                            response: {
+                                componentId: response.componentId,
+                                bulletinsCleared: response.bulletinsCleared,
+                                bulletins: response.bulletins || [],
+                                componentType: request.componentType
+                            }
+                        })
+                    ),
+                    catchError((errorResponse: HttpErrorResponse) => of(this.snackBarOrFullScreenError(errorResponse)))
+                )
+            )
+        )
+    );
+
+    clearBulletinsForProcessGroup$ = createEffect(() =>
+        this.actions$.pipe(
+            ofType(FlowActions.clearBulletinsForProcessGroup),
+            map((action) => action.request),
+            switchMap((request) =>
+                from(this.flowService.clearBulletinsForProcessGroup(request)).pipe(
+                    map((response) =>
+                        FlowActions.clearBulletinsForProcessGroupSuccess({
+                            response: {
+                                processGroupId: request.processGroupId,
+                                bulletinsCleared: response.bulletinsCleared
+                            }
+                        })
+                    ),
+                    catchError((errorResponse: HttpErrorResponse) => of(this.snackBarOrFullScreenError(errorResponse)))
+                )
+            )
+        )
+    );
+
+    clearBulletinsForProcessGroupSuccess$ = createEffect(() =>
+        this.actions$.pipe(
+            ofType(FlowActions.clearBulletinsForProcessGroupSuccess),
+            map((action) => action.response),
+            concatLatestFrom(() => this.store.select(selectCurrentProcessGroupId)),
+            switchMap(([response, currentProcessGroupId]) => {
+                // If we cleared bulletins for the currently viewed process group, reload the entire flow
+                if (response.processGroupId === currentProcessGroupId) {
+                    return of(FlowActions.reloadFlow());
+                } else {
+                    // If it's a child process group visible on the canvas, reload just that child
+                    return of(
+                        FlowActions.loadChildProcessGroup({
+                            request: { id: response.processGroupId }
+                        })
+                    );
+                }
+            })
+        )
     );
 }

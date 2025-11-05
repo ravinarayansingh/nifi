@@ -23,6 +23,7 @@ import org.apache.nifi.authorization.user.NiFiUser;
 import org.apache.nifi.bundle.BundleCoordinate;
 import org.apache.nifi.c2.protocol.component.api.ControllerServiceDefinition;
 import org.apache.nifi.c2.protocol.component.api.FlowAnalysisRuleDefinition;
+import org.apache.nifi.c2.protocol.component.api.FlowRegistryClientDefinition;
 import org.apache.nifi.c2.protocol.component.api.ParameterProviderDefinition;
 import org.apache.nifi.c2.protocol.component.api.ProcessorDefinition;
 import org.apache.nifi.c2.protocol.component.api.ReportingTaskDefinition;
@@ -100,6 +101,8 @@ import org.apache.nifi.web.api.entity.ActivateControllerServicesEntity;
 import org.apache.nifi.web.api.entity.AffectedComponentEntity;
 import org.apache.nifi.web.api.entity.AssetEntity;
 import org.apache.nifi.web.api.entity.BulletinEntity;
+import org.apache.nifi.web.api.entity.ClearBulletinsResultEntity;
+import org.apache.nifi.web.api.entity.ClearBulletinsForGroupResultsEntity;
 import org.apache.nifi.web.api.entity.ComponentValidationResultEntity;
 import org.apache.nifi.web.api.entity.ConfigurationAnalysisEntity;
 import org.apache.nifi.web.api.entity.ConnectionEntity;
@@ -160,6 +163,7 @@ import org.apache.nifi.web.api.request.FlowMetricsRegistry;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.time.Instant;
 import java.util.Collection;
 import java.util.Date;
 import java.util.List;
@@ -501,6 +505,8 @@ public interface NiFiServiceFacade {
      * @return The list of available flow registry client types matching specified criteria
      */
     Set<DocumentedTypeDTO> getFlowRegistryTypes();
+
+    FlowRegistryClientDefinition getFlowRegistryClientDefinition(String group, String artifact, String version, String type);
 
     /**
      * Returns the RuntimeManifest for this NiFi instance.
@@ -1778,6 +1784,12 @@ public interface NiFiServiceFacade {
     void verifyCanVerifyParameterProviderConfig(String parameterProviderId);
 
     /**
+     * Verifies that the Flow Registry Client with the given identifier is in a state where its configuration can be verified
+     * @param registryClientId the ID of the registry client
+     */
+    void verifyCanVerifyFlowRegistryClientConfig(String registryClientId);
+
+    /**
      * Verifies that the Process Group with the given identifier can be saved to the flow registry
      *
      * @param groupId the ID of the Process Group
@@ -2578,6 +2590,10 @@ public interface NiFiServiceFacade {
      */
     Set<FlowRegistryBucketEntity> getBucketsForUser(String registryClientId, String branch);
 
+    List<ConfigVerificationResultDTO> performFlowRegistryClientConfigVerification(String registryClientId, Map<String, String> properties, Map<String, String> variables);
+
+    ConfigurationAnalysisEntity analyzeFlowRegistryClientConfiguration(String registryClientId, Map<String, String> properties);
+
     /**
      * Gets the flows for the current user for the specified registry and bucket.
      *
@@ -3076,5 +3092,38 @@ public interface NiFiServiceFacade {
      * @param assetId the asset id
      */
     AssetEntity deleteAsset(String parameterContextId, String assetId);
+
+    // -----------------------------------------
+    // Bulletin methods
+    // -----------------------------------------
+
+    /**
+     * Clears bulletins for the specified component.
+     *
+     * @param componentId the component id
+     * @param fromTimestamp the timestamp from which to clear bulletins (inclusive), must not be null
+     * @return the clear bulletin result entity
+     */
+    ClearBulletinsResultEntity clearBulletinsForComponent(String componentId, Instant fromTimestamp);
+
+
+    /**
+     * Clears bulletins for the specified components.
+     *
+     * @param processGroupId the process group id
+     * @param fromTimestamp the timestamp from which to clear bulletins (inclusive), must not be null
+     * @param componentIds the component IDs for which to clear bulletins
+     * @return the results of clearing bulletins for each component
+     */
+    ClearBulletinsForGroupResultsEntity clearBulletinsForComponents(String processGroupId, Instant fromTimestamp, Set<String> componentIds);
+
+    /**
+     * Filters components within the specified process group using the provided function.
+     *
+     * @param groupId the id of the process group
+     * @param getComponents function that takes a ProcessGroup and returns a set of component IDs
+     * @return set of component IDs returned by the function
+     */
+    Set<String> filterComponents(String groupId, Function<ProcessGroup, Set<String>> getComponents);
 
 }

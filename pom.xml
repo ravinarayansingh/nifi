@@ -116,12 +116,12 @@
         <node.version>v22.19.0</node.version>
 
         <!-- NiFi build -->
-        <nifi-api.version>2.3.0</nifi-api.version>
-        <nifi.nar.maven.plugin.version>2.1.0</nifi.nar.maven.plugin.version>
+        <nifi-api.version>2.4.0</nifi-api.version>
+        <nifi.nar.maven.plugin.version>2.2.0</nifi.nar.maven.plugin.version>
 
         <!-- AWS SDK -->
-        <com.amazonaws.version>1.12.792</com.amazonaws.version>
-        <software.amazon.awssdk.version>2.35.0</software.amazon.awssdk.version>
+        <software.amazon.awssdk.version>2.37.4</software.amazon.awssdk.version>
+        <software.amazon.encryption.s3.version>3.5.0</software.amazon.encryption.s3.version>
 
         <!-- Apache Commons -->
         <org.apache.commons.cli.version>1.10.0</org.apache.commons.cli.version>
@@ -147,42 +147,42 @@
         <derby.version>10.17.1.0</derby.version>
 
         <!-- Data formats and serialization -->
-        <avro.version>1.12.0</avro.version>
-        <com.github.luben.zstd-jni.version>1.5.7-5</com.github.luben.zstd-jni.version>
-        <com.jayway.jsonpath.version>2.9.0</com.jayway.jsonpath.version>
+        <avro.version>1.12.1</avro.version>
+        <com.github.luben.zstd-jni.version>1.5.7-6</com.github.luben.zstd-jni.version>
+        <com.jayway.jsonpath.version>2.10.0</com.jayway.jsonpath.version>
         <gson.version>2.13.2</gson.version>
         <jackson.annotations.version>2.20</jackson.annotations.version>
-        <jackson.bom.version>2.20.0</jackson.bom.version>
+        <jackson.bom.version>2.20.1</jackson.bom.version>
         <json.smart.version>2.6.0</json.smart.version>
         <snakeyaml.version>2.5</snakeyaml.version>
 
         <!-- JVM languages and bytecode -->
-        <aspectj.version>1.9.24</aspectj.version>
-        <groovy.version>5.0.1</groovy.version>
-        <kotlin.version>2.2.20</kotlin.version>
+        <aspectj.version>1.9.25</aspectj.version>
+        <groovy.version>5.0.2</groovy.version>
+        <kotlin.version>2.2.21</kotlin.version>
 
         <!-- Logging and observability -->
         <log4j2.version>2.25.2</log4j2.version>
-        <logback.version>1.5.19</logback.version>
+        <logback.version>1.5.20</logback.version>
         <org.slf4j.version>2.0.17</org.slf4j.version>
         <prometheus.version>0.16.0</prometheus.version>
         <simple-syslog-5424.version>0.0.19</simple-syslog-5424.version>
 
         <!-- Networking and transport -->
-        <netty.4.version>4.2.6.Final</netty.4.version>
-        <okhttp.version>5.1.0</okhttp.version>
-        <okio.version>3.16.0</okio.version>
+        <netty.4.version>4.2.7.Final</netty.4.version>
+        <okhttp.version>5.3.0</okhttp.version>
+        <okio.version>3.16.2</okio.version>
         <org.apache.httpcomponents.httpclient.version>4.5.14</org.apache.httpcomponents.httpclient.version>
         <org.apache.httpcomponents.httpcore.version>4.4.16</org.apache.httpcomponents.httpcore.version>
         <org.apache.sshd.version>2.16.0</org.apache.sshd.version>
 
         <!-- Security -->
         <nimbus-jose-jwt.version>10.5</nimbus-jose-jwt.version>
-        <nimbus-oauth2-oidc.version>11.29.2</nimbus-oauth2-oidc.version>
+        <nimbus-oauth2-oidc.version>11.30</nimbus-oauth2-oidc.version>
         <org.bouncycastle.version>1.82</org.bouncycastle.version>
 
         <!-- Utilities -->
-        <caffeine.version>3.2.2</caffeine.version>
+        <caffeine.version>3.2.3</caffeine.version>
         <velocity-engine-core.version>2.4.1</velocity-engine-core.version>
 
         <!-- Web and API frameworks -->
@@ -192,19 +192,19 @@
         <jakarta.xml.bind-api.version>4.0.4</jakarta.xml.bind-api.version>
         <jakarta.activation-api.version>2.1.4</jakarta.activation-api.version>
         <jaxb.runtime.version>4.0.6</jaxb.runtime.version>
-        <jersey.bom.version>4.0.0-M4</jersey.bom.version>
-        <jetty.version>12.1.1</jetty.version>
+        <jersey.bom.version>4.0.0</jersey.bom.version>
+        <jetty.version>12.1.3</jetty.version>
         <servlet-api.version>6.1.0</servlet-api.version>
-        <spring.security.version>6.5.5</spring.security.version>
-        <spring.version>6.2.11</spring.version>
-        <swagger.annotations.version>2.2.38</swagger.annotations.version>
+        <spring.security.version>6.5.6</spring.security.version>
+        <spring.version>6.2.12</spring.version>
+        <swagger.annotations.version>2.2.40</swagger.annotations.version>
 
         <!-- Testing and quality -->
-        <junit.version>6.0.0</junit.version>
+        <junit.version>6.0.1</junit.version>
         <mockito.version>5.20.0</mockito.version>
-        <pmd.version>7.17.0</pmd.version>
-        <checkstyle.version>11.1.0</checkstyle.version>
-        <testcontainers.version>1.21.3</testcontainers.version>
+        <pmd.version>7.18.0</pmd.version>
+        <checkstyle.version>12.1.1</checkstyle.version>
+        <testcontainers.version>2.0.1</testcontainers.version>
     </properties>
     <dependencyManagement>
         <dependencies>
@@ -469,29 +469,6 @@
                 <version>${json.smart.version}</version>
             </dependency>
             <dependency>
-                <groupId>com.amazonaws</groupId>
-                <artifactId>aws-java-sdk-bom</artifactId>
-                <version>${com.amazonaws.version}</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
-            <dependency>
-                <groupId>com.amazonaws</groupId>
-                <artifactId>aws-java-sdk-core</artifactId>
-                <version>${com.amazonaws.version}</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>commons-logging</groupId>
-                        <artifactId>commons-logging</artifactId>
-                    </exclusion>
-                </exclusions>
-            </dependency>
-            <dependency>
-                <groupId>com.amazonaws</groupId>
-                <artifactId>aws-java-sdk-bundle</artifactId>
-                <version>${com.amazonaws.version}</version>
-            </dependency>
-            <dependency>
                 <groupId>software.amazon.awssdk</groupId>
                 <artifactId>bom</artifactId>
                 <version>${software.amazon.awssdk.version}</version>
@@ -727,7 +704,7 @@
                 <plugin>
                     <groupId>org.codehaus.mojo</groupId>
                     <artifactId>jaxb2-maven-plugin</artifactId>
-                    <version>3.3.0</version>
+                    <version>4.0.0</version>
                     <configuration>
                         <noGeneratedHeaderComments>true</noGeneratedHeaderComments>
                     </configuration>
@@ -735,7 +712,7 @@
                 <plugin>
                     <groupId>org.codehaus.mojo</groupId>
                     <artifactId>exec-maven-plugin</artifactId>
-                    <version>3.6.0</version>
+                    <version>3.6.2</version>
                 </plugin>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
@@ -777,7 +754,7 @@
                 <plugin>
                     <groupId>io.fabric8</groupId>
                     <artifactId>docker-maven-plugin</artifactId>
-                    <version>0.46.0</version>
+                    <version>0.47.0</version>
                 </plugin>
                 <plugin>
                     <groupId>org.codehaus.mojo</groupId>
@@ -825,24 +802,19 @@
                     <version>1.7.0</version>
                 </plugin>
                 <plugin>
-                    <groupId>org.patrodyne.jvnet</groupId>
-                    <artifactId>hisrc-higherjaxb40-maven-plugin</artifactId>
-                    <version>2.2.1</version>
-                </plugin>
-                <plugin>
                     <groupId>org.jacoco</groupId>
                     <artifactId>jacoco-maven-plugin</artifactId>
-                    <version>0.8.13</version>
+                    <version>0.8.14</version>
                 </plugin>
                 <plugin>
                     <groupId>io.swagger.core.v3</groupId>
                     <artifactId>swagger-maven-plugin-jakarta</artifactId>
-                    <version>2.2.38</version>
+                    <version>2.2.40</version>
                 </plugin>
                 <plugin>
                     <groupId>io.swagger.codegen.v3</groupId>
                     <artifactId>swagger-codegen-maven-plugin</artifactId>
-                    <version>3.0.73</version>
+                    <version>3.0.75</version>
                 </plugin>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
@@ -852,7 +824,7 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-pmd-plugin</artifactId>
-                    <version>3.27.0</version>
+                    <version>3.28.0</version>
                     <dependencies>
                         <dependency>
                             <groupId>net.sourceforge.pmd</groupId>
@@ -885,15 +857,6 @@
                     <stagingProgressTimeoutMinutes>15</stagingProgressTimeoutMinutes>
                     <serverId>repository.apache.org</serverId>
                     <nexusUrl>https://repository.apache.org/</nexusUrl>
-                </configuration>
-            </plugin>
-            <plugin>
-                <groupId>org.patrodyne.jvnet</groupId>
-                <artifactId>hisrc-higherjaxb40-maven-plugin</artifactId>
-                <configuration>
-                    <noFileHeader>true</noFileHeader>
-                    <!-- Disable episode file generation with non-reproducible timestamps -->
-                    <episode>false</episode>
                 </configuration>
             </plugin>
             <plugin>
@@ -931,6 +894,9 @@
                                     <excludes>
                                         <!-- JUnit 5 is the preferred test framework -->
                                         <exclude>org.testng:testng</exclude>
+                                        <!-- JUnit 4 should not be used -->
+                                        <exclude>junit:junit</exclude>
+                                        <exclude>org.junit.vintage:junit-vintage-engine</exclude>
                                         <!-- Cat-X Deps -->
                                         <exclude>org.json:json:(,20240303):compile</exclude>
                                         <exclude>c3p0:c3p0:*:*:compile</exclude>
