@@ -129,7 +129,7 @@ public class TestFetchFTP {
         runner.assertAllFlowFilesTransferred(FetchFileTransfer.REL_PERMISSION_DENIED, 1);
         runner.assertAllFlowFilesContainAttribute(FetchFileTransfer.FAILURE_REASON_ATTRIBUTE);
         MockFlowFile transferredFlowFile = runner.getPenalizedFlowFiles().get(0);
-        assertEquals("permission.denied.read", transferredFlowFile.getAttribute(FetchFileTransfer.FAILURE_REASON_ATTRIBUTE));
+        assertEquals(FetchFileTransfer.FAILURE_REASON_PERMISSION_DENIED_READ, transferredFlowFile.getAttribute(FetchFileTransfer.FAILURE_REASON_ATTRIBUTE));
     }
 
     @Test
@@ -222,9 +222,12 @@ public class TestFetchFTP {
         addFileAndEnqueue("hello.txt");
 
         runner.run(1, false, false);
-        // Delete now occurs post-commit; even on comms failure, the fetch is successful and routing stays success.
-        runner.assertAllFlowFilesTransferred(FetchFileTransfer.REL_SUCCESS, 1);
-        // On delete comms failure, remote file should still exist
+        // Completion strategy is now performed pre-commit; I/O errors during delete cause routing to comms.failure
+        runner.assertAllFlowFilesTransferred(FetchFileTransfer.REL_COMMS_FAILURE, 1);
+        runner.assertAllFlowFilesContainAttribute(FetchFileTransfer.FAILURE_REASON_ATTRIBUTE);
+        MockFlowFile transferredFlowFile = runner.getPenalizedFlowFiles().get(0);
+        assertEquals(FetchFileTransfer.FAILURE_REASON_COMPLETION_DELETE_IO_ERROR, transferredFlowFile.getAttribute(FetchFileTransfer.FAILURE_REASON_ATTRIBUTE));
+        // On delete comms failure, a remote file should still exist since transaction failed
         assertTrue(proc.fileContents.containsKey("hello.txt"));
     }
 
@@ -236,9 +239,12 @@ public class TestFetchFTP {
         addFileAndEnqueue("hello.txt");
 
         runner.run(1, false, false);
-        // Delete now occurs post-commit; permission denied should not change routing of the fetch itself
-        runner.assertAllFlowFilesTransferred(FetchFileTransfer.REL_SUCCESS, 1);
-        // Original remote file should remain since delete was rejected
+        // Completion strategy is now performed pre-commit; permission denied during delete causes routing to permission.denied
+        runner.assertAllFlowFilesTransferred(FetchFileTransfer.REL_PERMISSION_DENIED, 1);
+        runner.assertAllFlowFilesContainAttribute(FetchFileTransfer.FAILURE_REASON_ATTRIBUTE);
+        MockFlowFile transferredFlowFile = runner.getPenalizedFlowFiles().get(0);
+        assertEquals(FetchFileTransfer.FAILURE_REASON_COMPLETION_DELETE_PERMISSION_DENIED, transferredFlowFile.getAttribute(FetchFileTransfer.FAILURE_REASON_ATTRIBUTE));
+        // The original remote file should remain since the transaction failed
         assertTrue(proc.fileContents.containsKey("hello.txt"));
     }
 
