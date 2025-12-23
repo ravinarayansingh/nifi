@@ -21,6 +21,7 @@ import org.apache.nifi.components.AllowableValue;
 import org.apache.nifi.components.PropertyDescriptor;
 import org.apache.nifi.expression.ExpressionLanguageScope;
 import org.apache.nifi.flowfile.FlowFile;
+import org.apache.nifi.migration.PropertyConfiguration;
 import org.apache.nifi.processor.ProcessContext;
 import org.apache.nifi.processor.ProcessSession;
 import org.apache.nifi.processor.Relationship;
@@ -128,7 +129,7 @@ public abstract class AbstractDynamoDBProcessor extends AbstractAwsSyncProcessor
             .build();
 
     public static final PropertyDescriptor JSON_DOCUMENT = new PropertyDescriptor.Builder()
-            .name("Json Document attribute")
+            .name("Json Document")
             .required(true)
             .expressionLanguageSupported(ExpressionLanguageScope.ENVIRONMENT)
             .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
@@ -136,16 +137,16 @@ public abstract class AbstractDynamoDBProcessor extends AbstractAwsSyncProcessor
             .build();
 
     public static final PropertyDescriptor BATCH_SIZE = new PropertyDescriptor.Builder()
-            .name("Batch items for each request (between 1 and 50)")
+            .name("Batch Items Per Request")
             .required(false)
             .expressionLanguageSupported(ExpressionLanguageScope.ENVIRONMENT)
             .addValidator(StandardValidators.createLongValidator(1, 50, true))
             .defaultValue("1")
-            .description("The items to be retrieved in one batch")
+            .description("The number of items (between 1 and 50) to be retrieved in one batch")
             .build();
 
     public static final PropertyDescriptor DOCUMENT_CHARSET = new PropertyDescriptor.Builder()
-            .name("Character set of document")
+            .name("Document Character Set")
             .description("Character set of data in the document")
             .addValidator(StandardValidators.CHARACTER_SET_VALIDATOR)
             .required(true)
@@ -162,6 +163,14 @@ public abstract class AbstractDynamoDBProcessor extends AbstractAwsSyncProcessor
     @Override
     public Set<Relationship> getRelationships() {
         return COMMON_RELATIONSHIPS;
+    }
+
+    @Override
+    public void migrateProperties(PropertyConfiguration config) {
+        super.migrateProperties(config);
+        config.renameProperty("Batch items for each request (between 1 and 50)", BATCH_SIZE.getName());
+        config.renameProperty("Json Document attribute", JSON_DOCUMENT.getName());
+        config.renameProperty("Character set of document", DOCUMENT_CHARSET.getName());
     }
 
     @Override

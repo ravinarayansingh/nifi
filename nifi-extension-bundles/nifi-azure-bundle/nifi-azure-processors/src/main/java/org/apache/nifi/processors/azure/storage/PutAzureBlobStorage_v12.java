@@ -26,6 +26,7 @@ import com.azure.storage.blob.models.BlobRequestConditions;
 import com.azure.storage.blob.models.BlobStorageException;
 import com.azure.storage.blob.models.BlobType;
 import com.azure.storage.blob.models.BlockBlobItem;
+import com.azure.storage.blob.models.ParallelTransferOptions;
 import com.azure.storage.blob.options.BlobParallelUploadOptions;
 import org.apache.nifi.annotation.behavior.InputRequirement;
 import org.apache.nifi.annotation.behavior.InputRequirement.Requirement;
@@ -171,12 +172,15 @@ public class PutAzureBlobStorage_v12 extends AbstractAzureBlobProcessor_v12 impl
                 }
 
                 final long transferSize = fileResourceFound.map(FileResource::getSize).orElse(flowFile.getSize());
+                final long blockSize = Math.max(Math.ceilDiv(transferSize, 50000), BlobClient.BLOB_DEFAULT_UPLOAD_BLOCK_SIZE);
                 final FlowFile sourceFlowFile = flowFile;
                 try (InputStream sourceInputStream = fileResourceFound
                         .map(FileResource::getInputStream)
                         .orElseGet(() -> session.read(sourceFlowFile))
                 ) {
                     final BlobParallelUploadOptions blobParallelUploadOptions = new BlobParallelUploadOptions(toFluxByteBuffer(sourceInputStream, BlobClient.BLOB_DEFAULT_UPLOAD_BLOCK_SIZE));
+                    final ParallelTransferOptions parallelTransferOptions = new ParallelTransferOptions().setBlockSizeLong(blockSize);
+                    blobParallelUploadOptions.setParallelTransferOptions(parallelTransferOptions);
                     blobParallelUploadOptions.setRequestConditions(blobRequestConditions);
                     Response<BlockBlobItem> response = blobClient.uploadWithResponse(blobParallelUploadOptions, null, Context.NONE);
                     BlockBlobItem blob = response.getValue();
@@ -213,12 +217,12 @@ public class PutAzureBlobStorage_v12 extends AbstractAzureBlobProcessor_v12 impl
 
     @Override
     public void migrateProperties(PropertyConfiguration config) {
+        super.migrateProperties(config);
         config.renameProperty(AbstractAzureBlobProcessor_v12.OLD_BLOB_NAME_PROPERTY_DESCRIPTOR_NAME, BLOB_NAME.getName());
         config.renameProperty(AzureStorageUtils.OLD_CONFLICT_RESOLUTION_DESCRIPTOR_NAME, AzureStorageUtils.CONFLICT_RESOLUTION.getName());
         config.renameProperty(AzureStorageUtils.OLD_CREATE_CONTAINER_DESCRIPTOR_NAME, AzureStorageUtils.CREATE_CONTAINER.getName());
         config.renameProperty(AzureStorageUtils.OLD_CONTAINER_DESCRIPTOR_NAME, AzureStorageUtils.CONTAINER.getName());
         config.renameProperty(AzureStorageUtils.OLD_BLOB_STORAGE_CREDENTIALS_SERVICE_DESCRIPTOR_NAME, AzureStorageUtils.BLOB_STORAGE_CREDENTIALS_SERVICE.getName());
-
     }
 
     private static void applyUploadResultAttributes(final Map<String, String> attributes, final BlockBlobItem blob, final BlobType blobType, final long length) {

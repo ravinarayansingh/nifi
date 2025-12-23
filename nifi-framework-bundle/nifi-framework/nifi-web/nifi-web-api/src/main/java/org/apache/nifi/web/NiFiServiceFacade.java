@@ -70,6 +70,7 @@ import org.apache.nifi.web.api.dto.FlowFileDTO;
 import org.apache.nifi.web.api.dto.FlowRegistryClientDTO;
 import org.apache.nifi.web.api.dto.FunnelDTO;
 import org.apache.nifi.web.api.dto.LabelDTO;
+import org.apache.nifi.web.api.dto.ListenPortDTO;
 import org.apache.nifi.web.api.dto.ListingRequestDTO;
 import org.apache.nifi.web.api.dto.NodeDTO;
 import org.apache.nifi.web.api.dto.ParameterContextDTO;
@@ -160,6 +161,7 @@ import org.apache.nifi.web.api.entity.VersionedFlowEntity;
 import org.apache.nifi.web.api.entity.VersionedFlowSnapshotMetadataEntity;
 import org.apache.nifi.web.api.entity.VersionedReportingTaskImportResponseEntity;
 import org.apache.nifi.web.api.request.FlowMetricsRegistry;
+import org.apache.nifi.web.api.request.FlowMetricsReportingStrategy;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -406,9 +408,10 @@ public interface NiFiServiceFacade {
      * Generate metrics for the flow and return selected registries
      *
      * @param includeRegistries Set of Flow Metrics Registries to be returned
+     * @param flowMetricsStrategy Flow metrics reporting strategy limits collected metrics
      * @return Collector Registries
      */
-    Collection<CollectorRegistry> generateFlowMetrics(Set<FlowMetricsRegistry> includeRegistries);
+    Collection<CollectorRegistry> generateFlowMetrics(Set<FlowMetricsRegistry> includeRegistries, FlowMetricsReportingStrategy flowMetricsStrategy);
 
     /**
      * Updates the configuration for this controller.
@@ -3126,4 +3129,15 @@ public interface NiFiServiceFacade {
      */
     Set<String> filterComponents(String groupId, Function<ProcessGroup, Set<String>> getComponents);
 
+    // ----------------------------------------
+    // Listen Port methods
+    // ----------------------------------------
+
+    /**
+     * Get all dynamically defined data ingress ports provided by Listen Components (e.g., Processors and Controller Services)
+     *
+     * @param user the user performing the lookup
+     * @return the list of listen Ports accessible to the current user
+     */
+    Set<ListenPortDTO> getListenPorts(NiFiUser user);
 }

@@ -19,7 +19,9 @@ package org.apache.nifi.processors.aws.ml.textract;
 
 import org.apache.nifi.processor.ProcessContext;
 import org.apache.nifi.processor.Relationship;
+import org.apache.nifi.processors.aws.AbstractAwsProcessor;
 import org.apache.nifi.processors.aws.testutil.AuthUtils;
+import org.apache.nifi.proxy.ProxyConfigurationService;
 import org.apache.nifi.reporting.InitializationException;
 import org.apache.nifi.util.PropertyMigrationResult;
 import org.apache.nifi.util.TestRunner;
@@ -42,6 +44,8 @@ import software.amazon.awssdk.services.textract.model.JobStatus;
 
 import java.util.Map;
 
+import static org.apache.nifi.processors.aws.AbstractAwsProcessor.AWS_CREDENTIALS_PROVIDER_SERVICE;
+import static org.apache.nifi.processors.aws.AbstractAwsProcessor.OBSOLETE_AWS_CREDENTIALS_PROVIDER_SERVICE_PROPERTY_NAME;
 import static org.apache.nifi.processors.aws.ml.AbstractAwsMachineLearningJobStatusProcessor.REL_FAILURE;
 import static org.apache.nifi.processors.aws.ml.AbstractAwsMachineLearningJobStatusProcessor.REL_RUNNING;
 import static org.apache.nifi.processors.aws.ml.AbstractAwsMachineLearningJobStatusProcessor.REL_SUCCESS;
@@ -151,7 +155,9 @@ public class GetAwsTextractJobStatusTest {
         final PropertyMigrationResult propertyMigrationResult = runner.migrateProperties();
         final Map<String, String> expected = Map.of("aws-region", REGION.getName(),
                 "awsTaskId", TASK_ID.getName(),
-                "textract-type", GetAwsTextractJobStatus.TEXTRACT_TYPE.getName());
+                "textract-type", GetAwsTextractJobStatus.TEXTRACT_TYPE.getName(),
+                OBSOLETE_AWS_CREDENTIALS_PROVIDER_SERVICE_PROPERTY_NAME, AWS_CREDENTIALS_PROVIDER_SERVICE.getName(),
+                ProxyConfigurationService.OBSOLETE_PROXY_CONFIGURATION_SERVICE, AbstractAwsProcessor.PROXY_CONFIGURATION_SERVICE.getName());
 
         assertEquals(expected, propertyMigrationResult.getPropertiesRenamed());
     }

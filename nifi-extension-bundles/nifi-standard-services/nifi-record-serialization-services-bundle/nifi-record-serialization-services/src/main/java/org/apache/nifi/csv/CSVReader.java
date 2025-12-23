@@ -77,8 +77,7 @@ public class CSVReader extends SchemaRegistryService implements RecordReaderFact
                     + "if the data is not fully RFC-4180 compliant.");
 
     public static final PropertyDescriptor CSV_PARSER = new PropertyDescriptor.Builder()
-            .name("csv-reader-csv-parser")
-            .displayName("CSV Parser")
+            .name("CSV Parser")
             .description("Specifies which parser to use to read CSV records. NOTE: Different parsers may support different subsets of functionality "
                     + "and may also exhibit different levels of performance.")
             .expressionLanguageSupported(ExpressionLanguageScope.NONE)
@@ -88,7 +87,7 @@ public class CSVReader extends SchemaRegistryService implements RecordReaderFact
             .build();
 
     public static final PropertyDescriptor TRIM_DOUBLE_QUOTE = new PropertyDescriptor.Builder()
-            .name("Trim double quote")
+            .name("Trim Double Quote")
             .description("Whether or not to trim starting and ending double quotes. For example: with trim string '\"test\"'"
                     + " would be parsed to 'test', without trim would be parsed to '\"test\"'."
                     + "If set to 'false' it means full compliance with RFC-4180. Default value is true, with trim.")
@@ -192,6 +191,8 @@ public class CSVReader extends SchemaRegistryService implements RecordReaderFact
     @Override
     public void migrateProperties(PropertyConfiguration config) {
         super.migrateProperties(config);
+        config.renameProperty("csv-reader-csv-parser", CSV_PARSER.getName());
+        config.renameProperty("Trim double quote", TRIM_DOUBLE_QUOTE.getName());
         config.renameProperty(CSVUtils.OLD_FIRST_LINE_IS_HEADER_PROPERTY_NAME, CSVUtils.FIRST_LINE_IS_HEADER.getName());
         config.renameProperty(CSVUtils.OLD_IGNORE_CSV_HEADER_PROPERTY_NAME, CSVUtils.IGNORE_CSV_HEADER.getName());
         config.renameProperty(CSVUtils.OLD_CHARSET_PROPERTY_NAME, CSVUtils.CHARSET.getName());

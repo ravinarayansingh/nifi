@@ -262,6 +262,7 @@ import org.apache.nifi.web.api.dto.FlowRegistryClientDTO;
 import org.apache.nifi.web.api.dto.FlowSnippetDTO;
 import org.apache.nifi.web.api.dto.FunnelDTO;
 import org.apache.nifi.web.api.dto.LabelDTO;
+import org.apache.nifi.web.api.dto.ListenPortDTO;
 import org.apache.nifi.web.api.dto.ListingRequestDTO;
 import org.apache.nifi.web.api.dto.NarCoordinateDTO;
 import org.apache.nifi.web.api.dto.NarSummaryDTO;
@@ -392,6 +393,7 @@ import org.apache.nifi.web.api.entity.VersionedFlowEntity;
 import org.apache.nifi.web.api.entity.VersionedFlowSnapshotMetadataEntity;
 import org.apache.nifi.web.api.entity.VersionedReportingTaskImportResponseEntity;
 import org.apache.nifi.web.api.request.FlowMetricsRegistry;
+import org.apache.nifi.web.api.request.FlowMetricsReportingStrategy;
 import org.apache.nifi.web.controller.ControllerFacade;
 import org.apache.nifi.web.dao.AccessPolicyDAO;
 import org.apache.nifi.web.dao.ConnectionDAO;
@@ -6633,7 +6635,7 @@ public class StandardNiFiServiceFacade implements NiFiServiceFacade {
         return entityFactory.createProcessorDiagnosticsEntity(dto, revisionDto, permissionsDto, processorStatusDto, bulletins);
     }
 
-    protected Collection<AbstractMetricsRegistry> populateFlowMetrics() {
+    protected Collection<AbstractMetricsRegistry> populateFlowMetrics(FlowMetricsReportingStrategy flowMetricsStrategy) {
         // Include registries which are fully refreshed upon each invocation
         NiFiMetricsRegistry nifiMetricsRegistry = new NiFiMetricsRegistry();
         BulletinMetricsRegistry bulletinMetricsRegistry = new BulletinMetricsRegistry();
@@ -6643,8 +6645,7 @@ public class StandardNiFiServiceFacade implements NiFiServiceFacade {
         final String instanceId = node == null ? instId : node.getId();
         ProcessGroupStatus rootPGStatus = controllerFacade.getProcessGroupStatus("root");
 
-        PrometheusMetricsUtil.createNifiMetrics(nifiMetricsRegistry, rootPGStatus, instanceId, "", ROOT_PROCESS_GROUP,
-                PrometheusMetricsUtil.METRICS_STRATEGY_COMPONENTS.getValue());
+        PrometheusMetricsUtil.createNifiMetrics(nifiMetricsRegistry, rootPGStatus, instanceId, "", ROOT_PROCESS_GROUP, flowMetricsStrategy);
 
         // Add the total byte counts (read/written) to the NiFi metrics registry
         FlowFileEventRepository flowFileEventRepository = controllerFacade.getFlowFileEventRepository();
@@ -6745,19 +6746,19 @@ public class StandardNiFiServiceFacade implements NiFiServiceFacade {
     @Override
     public Collection<CollectorRegistry> generateFlowMetrics() {
 
-        return populateFlowMetrics().stream().map(AbstractMetricsRegistry::getRegistry)
+        return populateFlowMetrics(FlowMetricsReportingStrategy.ALL_COMPONENTS).stream().map(AbstractMetricsRegistry::getRegistry)
                 .collect(Collectors.toList());
     }
 
     @Override
-    public Collection<CollectorRegistry> generateFlowMetrics(final Set<FlowMetricsRegistry> includeRegistries) {
+    public Collection<CollectorRegistry> generateFlowMetrics(final Set<FlowMetricsRegistry> includeRegistries, final FlowMetricsReportingStrategy flowMetricsStrategy) {
         final Set<FlowMetricsRegistry> selectedRegistries = includeRegistries.isEmpty() ? new HashSet<>(Arrays.asList(FlowMetricsRegistry.values())) : includeRegistries;
 
         final Set<Class<? extends AbstractMetricsRegistry>> registryClasses = selectedRegistries.stream()
                 .map(FlowMetricsRegistry::getRegistryClass)
                 .collect(Collectors.toSet());
 
-        Collection<AbstractMetricsRegistry> configuredRegistries = populateFlowMetrics();
+        Collection<AbstractMetricsRegistry> configuredRegistries = populateFlowMetrics(flowMetricsStrategy);
 
         return configuredRegistries.stream()
                 .filter(configuredRegistry -> registryClasses.contains(configuredRegistry.getClass()))
@@ -7247,6 +7248,11 @@ public class StandardNiFiServiceFacade implements NiFiServiceFacade {
      */
     protected NiFiRegistryFlowMapper makeNiFiRegistryFlowMapper(final ExtensionManager extensionManager, final FlowMappingOptions options) {
         return new NiFiRegistryFlowMapper(extensionManager, options);
+    }
+
+    @Override
+    public Set<ListenPortDTO> getListenPorts(final NiFiUser user) {
+        return controllerFacade.getListenPorts(user);
     }
 
     @Autowired

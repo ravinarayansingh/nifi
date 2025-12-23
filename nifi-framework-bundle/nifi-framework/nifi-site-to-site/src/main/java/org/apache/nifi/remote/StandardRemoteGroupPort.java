@@ -43,7 +43,7 @@ import org.apache.nifi.remote.exception.UnknownPortException;
 import org.apache.nifi.remote.exception.UnreachableClusterException;
 import org.apache.nifi.remote.protocol.DataPacket;
 import org.apache.nifi.remote.protocol.http.HttpProxy;
-import org.apache.nifi.remote.util.SiteToSiteRestApiClient;
+import org.apache.nifi.remote.util.ClusterUrlParser;
 import org.apache.nifi.remote.util.StandardDataPacket;
 import org.apache.nifi.reporting.Severity;
 import org.apache.nifi.scheduling.SchedulingStrategy;
@@ -159,12 +159,14 @@ public class StandardRemoteGroupPort extends RemoteGroupPort {
 
         final long penalizationMillis = FormatUtils.getTimeDuration(remoteGroup.getYieldDuration(), TimeUnit.MILLISECONDS);
 
+        final SiteToSiteEventReporter eventReporter = (severity, category, message) -> remoteGroup.getEventReporter().reportEvent(severity, category, message);
+
         final SiteToSiteClient.Builder clientBuilder = new SiteToSiteClient.Builder()
-                .urls(SiteToSiteRestApiClient.parseClusterUrls(remoteGroup.getTargetUris()))
+                .urls(ClusterUrlParser.parseClusterUrls(remoteGroup.getTargetUris()))
                 .portIdentifier(getTargetIdentifier())
                 .sslContext(sslContext)
                 .useCompression(isUseCompression())
-                .eventReporter(remoteGroup.getEventReporter())
+                .eventReporter(eventReporter)
                 .stateManager(remoteGroup.getStateManager())
                 .nodePenalizationPeriod(penalizationMillis, TimeUnit.MILLISECONDS)
                 .timeout(remoteGroup.getCommunicationsTimeout(TimeUnit.MILLISECONDS), TimeUnit.MILLISECONDS)

@@ -115,7 +115,7 @@ public abstract class AbstractMQTTProcessor extends AbstractSessionFactoryProces
                     "the processor will use a round-robin algorithm to connect to the brokers on connection failure.")
             .required(true)
             .expressionLanguageSupported(ExpressionLanguageScope.ENVIRONMENT)
-            .addValidator(StandardValidators.NON_BLANK_VALIDATOR)
+            .addValidator(StandardValidators.URI_LIST_VALIDATOR)
             .build();
 
     public static final PropertyDescriptor PROP_CLIENTID = new PropertyDescriptor.Builder()
@@ -187,7 +187,7 @@ public abstract class AbstractMQTTProcessor extends AbstractSessionFactoryProces
             .build();
 
     public static final PropertyDescriptor PROP_CLEAN_SESSION = new PropertyDescriptor.Builder()
-            .name("Session state")
+            .name("Session State")
             .description("Whether to start a fresh or resume previous flows. See the allowable value descriptions for more details.")
             .required(true)
             .allowableValues(
@@ -207,8 +207,8 @@ public abstract class AbstractMQTTProcessor extends AbstractSessionFactoryProces
             .build();
 
     public static final PropertyDescriptor PROP_CONN_TIMEOUT = new PropertyDescriptor.Builder()
-            .name("Connection Timeout (seconds)")
-            .description("Maximum time interval the client will wait for the network connection to the MQTT server " +
+            .name("Connection Timeout")
+            .description("Maximum time interval (in seconds), the client will wait for the network connection to the MQTT server " +
                     "to be established. The default timeout is 30 seconds. " +
                     "A value of 0 disables timeout processing meaning the client will wait until the network connection is made successfully or fails.")
             .required(false)
@@ -217,8 +217,8 @@ public abstract class AbstractMQTTProcessor extends AbstractSessionFactoryProces
             .build();
 
     public static final PropertyDescriptor PROP_KEEP_ALIVE_INTERVAL = new PropertyDescriptor.Builder()
-            .name("Keep Alive Interval (seconds)")
-            .description("Defines the maximum time interval between messages sent or received. It enables the " +
+            .name("Keep Alive")
+            .description("Defines the maximum time interval (in seconds), between messages sent or received. It enables the " +
                     "client to detect if the server is no longer available, without having to wait for the TCP/IP timeout. " +
                     "The client will ensure that at least one message travels across the network within each keep alive period. In the absence of a data-related message during the time period, " +
                     "the client sends a very small \"ping\" message, which the server will acknowledge. A value of 0 disables keepalive processing in the client.")
@@ -357,6 +357,9 @@ public abstract class AbstractMQTTProcessor extends AbstractSessionFactoryProces
         config.renameProperty("record-reader", BASE_RECORD_READER.getName());
         config.renameProperty("record-writer", BASE_RECORD_WRITER.getName());
         config.renameProperty("message-demarcator", BASE_MESSAGE_DEMARCATOR.getName());
+        config.renameProperty("Connection Timeout (seconds)", PROP_CONN_TIMEOUT.getName());
+        config.renameProperty("Keep Alive Interval (seconds)", PROP_KEEP_ALIVE_INTERVAL.getName());
+        config.renameProperty("Session state", PROP_CLEAN_SESSION.getName());
     }
 
     protected boolean isConnected() {

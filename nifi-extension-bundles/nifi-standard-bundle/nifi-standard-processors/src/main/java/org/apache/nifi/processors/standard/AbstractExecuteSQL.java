@@ -92,8 +92,7 @@ public abstract class AbstractExecuteSQL extends AbstractProcessor {
             .build();
 
     public static final PropertyDescriptor SQL_PRE_QUERY = new PropertyDescriptor.Builder()
-            .name("sql-pre-query")
-            .displayName("SQL Pre-Query")
+            .name("SQL Pre-Query")
             .description("A semicolon-delimited list of queries executed before the main SQL query is executed. " +
                     "For example, set session properties before main query. " +
                     "It's possible to include semicolons in the statements themselves by escaping them with a backslash ('\\;'). " +
@@ -116,8 +115,7 @@ public abstract class AbstractExecuteSQL extends AbstractProcessor {
             .build();
 
     public static final PropertyDescriptor SQL_POST_QUERY = new PropertyDescriptor.Builder()
-            .name("sql-post-query")
-            .displayName("SQL Post-Query")
+            .name("SQL Post-Query")
             .description("A semicolon-delimited list of queries executed after the main SQL query is executed. " +
                     "Example like setting session properties after main query. " +
                     "It's possible to include semicolons in the statements themselves by escaping them with a backslash ('\\;'). " +
@@ -139,8 +137,7 @@ public abstract class AbstractExecuteSQL extends AbstractProcessor {
             .build();
 
     public static final PropertyDescriptor MAX_ROWS_PER_FLOW_FILE = new PropertyDescriptor.Builder()
-            .name("esql-max-rows")
-            .displayName("Max Rows Per Flow File")
+            .name("Max Rows Per Flow File")
             .description("The maximum number of result rows that will be included in a single FlowFile. This will allow you to break up very large "
                     + "result sets into multiple FlowFiles. If the value specified is zero, then all rows are returned in a single FlowFile.")
             .defaultValue("0")
@@ -150,8 +147,7 @@ public abstract class AbstractExecuteSQL extends AbstractProcessor {
             .build();
 
     public static final PropertyDescriptor OUTPUT_BATCH_SIZE = new PropertyDescriptor.Builder()
-            .name("esql-output-batch-size")
-            .displayName("Output Batch Size")
+            .name("Output Batch Size")
             .description("The number of output FlowFiles to queue before committing the process session. When set to zero, the session will be committed when all result set rows "
                     + "have been processed and the output FlowFiles are ready for transfer to the downstream relationship. For large result sets, this can cause a large burst of FlowFiles "
                     + "to be transferred at the end of processor execution. If this property is set, then when the specified number of FlowFiles are ready for transfer, then the session will "
@@ -164,8 +160,7 @@ public abstract class AbstractExecuteSQL extends AbstractProcessor {
             .build();
 
     public static final PropertyDescriptor FETCH_SIZE = new PropertyDescriptor.Builder()
-            .name("esql-fetch-size")
-            .displayName("Fetch Size")
+            .name("Fetch Size")
             .description("The number of result rows to be fetched from the result set at a time. This is a hint to the database driver and may not be "
                     + "honored and/or exact. If the value specified is zero, then the hint is ignored.")
             .defaultValue("0")
@@ -175,8 +170,7 @@ public abstract class AbstractExecuteSQL extends AbstractProcessor {
             .build();
 
     public static final PropertyDescriptor AUTO_COMMIT = new PropertyDescriptor.Builder()
-            .name("esql-auto-commit")
-            .displayName("Set Auto Commit")
+            .name("Set Auto Commit")
             .description("Enables or disables the auto commit functionality of the DB connection. Default value is 'true'. " +
                     "The default value can be used with most of the JDBC drivers and this functionality doesn't have any impact in most of the cases " +
                     "since this processor is used to read data. " +
@@ -217,7 +211,13 @@ public abstract class AbstractExecuteSQL extends AbstractProcessor {
 
     @Override
     public void migrateProperties(final PropertyConfiguration config) {
+        config.renameProperty("sql-pre-query", SQL_PRE_QUERY.getName());
         config.renameProperty("SQL select query", SQL_QUERY.getName());
+        config.renameProperty("sql-post-query", SQL_POST_QUERY.getName());
+        config.renameProperty("esql-max-rows", MAX_ROWS_PER_FLOW_FILE.getName());
+        config.renameProperty("esql-output-batch-size", OUTPUT_BATCH_SIZE.getName());
+        config.renameProperty("esql-fetch-size", FETCH_SIZE.getName());
+        config.renameProperty("esql-auto-commit", AUTO_COMMIT.getName());
     }
 
     @OnScheduled
@@ -248,6 +248,7 @@ public abstract class AbstractExecuteSQL extends AbstractProcessor {
         }
 
         final List<FlowFile> resultSetFlowFiles = new ArrayList<>();
+        Map<String, String> retainedFlowFileAttributes = null;
 
         final ComponentLog logger = getLogger();
         final int queryTimeout = context.getProperty(QUERY_TIMEOUT).evaluateAttributeExpressions(fileToProcess).asTimePeriod(TimeUnit.SECONDS).intValue();
@@ -404,8 +405,10 @@ public abstract class AbstractExecuteSQL extends AbstractProcessor {
                                     // If we've reached the batch size, send out the flow files
                                     if (outputBatchSize > 0 && resultSetFlowFiles.size() >= outputBatchSize) {
                                         session.transfer(resultSetFlowFiles, REL_SUCCESS);
-                                        // Need to remove the original input file if it exists
+                                        // Need to remove the original input file if it exists,
+                                        // but save the attributes to add them to the failure flow file if it is created
                                         if (fileToProcess != null) {
+                                            retainedFlowFileAttributes = new HashMap<>(fileToProcess.getAttributes());
                                             session.remove(fileToProcess);
                                             fileToProcess = null;
                                         }
@@ -492,20 +495,27 @@ public abstract class AbstractExecuteSQL extends AbstractProcessor {
         } catch (final ProcessException | SQLException e) {
             //If we had at least one result then it's OK to drop the original file, but if we had no results then
             //  pass the original flow file down the line to trigger downstream processors
-            if (fileToProcess == null) {
+            //  or create a new empty flow file with the original attributes if the original file no longer exists
+            FlowFile failureFlowFile = fileToProcess;
+            if (failureFlowFile == null && retainedFlowFileAttributes != null) {
+                failureFlowFile = session.create();
+                failureFlowFile = session.putAllAttributes(failureFlowFile, retainedFlowFileAttributes);
+            }
+
+            if (failureFlowFile == null) {
                 // This can happen if any exceptions occur while setting up the connection, statement, etc.
                 logger.error("Unable to execute SQL select query [{}]. No FlowFile to route to failure", selectQuery, e);
                 context.yield();
             } else {
                 if (context.hasIncomingConnection()) {
-                    logger.error("Unable to execute SQL select query [{}] for {} routing to failure", selectQuery, fileToProcess, e);
-                    fileToProcess = session.penalize(fileToProcess);
+                    logger.error("Unable to execute SQL select query [{}] for {} routing to failure", selectQuery, failureFlowFile, e);
+                    failureFlowFile = session.penalize(failureFlowFile);
                 } else {
                     logger.error("Unable to execute SQL select query [{}] routing to failure", selectQuery, e);
                     context.yield();
                 }
-                session.putAttribute(fileToProcess, RESULT_ERROR_MESSAGE, e.getMessage());
-                session.transfer(fileToProcess, REL_FAILURE);
+                session.putAttribute(failureFlowFile, RESULT_ERROR_MESSAGE, e.getMessage());
+                session.transfer(failureFlowFile, REL_FAILURE);
             }
         }
     }

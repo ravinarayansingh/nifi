@@ -45,6 +45,7 @@ import org.apache.nifi.expression.ExpressionLanguageScope;
 import org.apache.nifi.flowfile.FlowFile;
 import org.apache.nifi.flowfile.attributes.CoreAttributes;
 import org.apache.nifi.logging.ComponentLog;
+import org.apache.nifi.migration.PropertyConfiguration;
 import org.apache.nifi.processor.AbstractProcessor;
 import org.apache.nifi.processor.ProcessContext;
 import org.apache.nifi.processor.ProcessSession;
@@ -221,8 +222,7 @@ public class UpdateAttribute extends AbstractProcessor implements Searchable {
             .build();
 
     public static final PropertyDescriptor CANONICAL_VALUE_LOOKUP_CACHE_SIZE = new PropertyDescriptor.Builder()
-            .name("canonical-value-lookup-cache-size")
-            .displayName("Cache Value Lookup Cache Size")
+            .name("Cache Value Lookup Cache Size")
             .description("Specifies how many canonical lookup values should be stored in the cache")
             .addValidator(StandardValidators.NON_NEGATIVE_INTEGER_VALIDATOR)
             .defaultValue("100")
@@ -335,6 +335,19 @@ public class UpdateAttribute extends AbstractProcessor implements Searchable {
     @Override
     protected Collection<ValidationResult> customValidate(final ValidationContext context) {
         final List<ValidationResult> reasons = new ArrayList<>(super.customValidate(context));
+
+        for (final Map.Entry<PropertyDescriptor, String> entry : context.getProperties().entrySet()) {
+            final PropertyDescriptor descriptor = entry.getKey();
+            if (descriptor.isDynamic()) {
+                if (entry.getValue() == null) {
+                    reasons.add(new ValidationResult.Builder()
+                            .subject(descriptor.getDisplayName())
+                            .valid(false)
+                            .explanation("Dynamic Property %s is null. Does it reference an unset parameter?".formatted(descriptor.getName()))
+                            .build());
+                }
+            }
+        }
 
         if (!context.getProperty(STORE_STATE).getValue().equals(DO_NOT_STORE_STATE)) {
             String initValue = context.getProperty(STATEFUL_VARIABLES_INIT_VALUE).getValue();
@@ -572,6 +585,11 @@ public class UpdateAttribute extends AbstractProcessor implements Searchable {
             session.getProvenanceReporter().modifyAttributes(toTransfer);
         }
         session.transfer(flowFilesToTransfer, REL_SUCCESS);
+    }
+
+    @Override
+    public void migrateProperties(PropertyConfiguration config) {
+        config.renameProperty("canonical-value-lookup-cache-size", CANONICAL_VALUE_LOOKUP_CACHE_SIZE.getName());
     }
 
     //Evaluates the specified Criteria on the specified flowfile. Clones the

@@ -25,17 +25,17 @@ import org.apache.nifi.components.ValidationResult;
 import org.apache.nifi.components.Validator;
 import org.apache.nifi.components.state.StateManager;
 import org.apache.nifi.context.PropertyContext;
-import org.apache.nifi.events.EventReporter;
 import org.apache.nifi.expression.ExpressionLanguageScope;
 import org.apache.nifi.logging.ComponentLog;
 import org.apache.nifi.processor.util.StandardValidators;
 import org.apache.nifi.proxy.ProxyConfiguration;
 import org.apache.nifi.proxy.ProxyConfigurationService;
 import org.apache.nifi.proxy.ProxySpec;
+import org.apache.nifi.remote.SiteToSiteEventReporter;
 import org.apache.nifi.remote.client.SiteToSiteClient;
 import org.apache.nifi.remote.protocol.SiteToSiteTransportProtocol;
 import org.apache.nifi.remote.protocol.http.HttpProxy;
-import org.apache.nifi.remote.util.SiteToSiteRestApiClient;
+import org.apache.nifi.remote.util.ClusterUrlParser;
 import org.apache.nifi.reporting.ReportingContext;
 import org.apache.nifi.ssl.SSLContextProvider;
 
@@ -122,7 +122,7 @@ public class SiteToSiteUtils {
     public static SiteToSiteClient getClient(PropertyContext reportContext, ComponentLog logger, StateManager stateManager) {
         final SSLContextProvider sslContextProvider = reportContext.getProperty(SiteToSiteUtils.SSL_CONTEXT).asControllerService(SSLContextProvider.class);
         final SSLContext sslContext = sslContextProvider == null ? null : sslContextProvider.createContext();
-        final EventReporter eventReporter = (EventReporter) (severity, category, message) -> {
+        final SiteToSiteEventReporter eventReporter = (severity, category, message) -> {
             switch (severity) {
                 case WARNING:
                     logger.warn(message);
@@ -155,7 +155,7 @@ public class SiteToSiteUtils {
             stateManager = ((ReportingContext) reportContext).getStateManager();
         }
         return new SiteToSiteClient.Builder()
-                .urls(SiteToSiteRestApiClient.parseClusterUrls(destinationUrl))
+                .urls(ClusterUrlParser.parseClusterUrls(destinationUrl))
                 .portName(reportContext.getProperty(SiteToSiteUtils.PORT_NAME).getValue())
                 .useCompression(reportContext.getProperty(SiteToSiteUtils.COMPRESS).asBoolean())
                 .eventReporter(eventReporter)
@@ -172,7 +172,7 @@ public class SiteToSiteUtils {
         public ValidationResult validate(final String subject, final String input, final ValidationContext context) {
             final String value = context.newPropertyValue(input).evaluateAttributeExpressions().getValue();
             try {
-                SiteToSiteRestApiClient.parseClusterUrls(value);
+                ClusterUrlParser.parseClusterUrls(value);
                 return new ValidationResult.Builder()
                         .input(input)
                         .subject(subject)
